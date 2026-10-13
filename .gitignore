@@ -9,6 +9,7 @@ text_files/
 results/
 rejected_artifacts/
 catboost_info/
+tests/
 
 .env
 .venv

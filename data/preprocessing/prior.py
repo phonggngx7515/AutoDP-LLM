@@ -4,7 +4,6 @@ Prior data preprocessing utilities
 
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
 
 
 def summarize_prior_preprocessing(raw_df, processed_df, label_col=None, notes=None):
@@ -66,8 +65,7 @@ def summarize_prior_preprocessing(raw_df, processed_df, label_col=None, notes=No
 
         if label_col and label_col in processed_df.columns:
             uniq = pd.unique(processed_df[label_col].dropna())
-            is_binary = len(uniq) <= 2 and set(np.asarray(uniq).ravel().tolist()) <= {0, 1}
-            kind = "already binary {0,1}" if is_binary else f"{len(uniq)} classes"
+            kind = f"{len(uniq)} classes"
             lines.append(f"- Target column '{label_col}' is present "
                          f"(dtype={processed_df[label_col].dtype}, {kind}).")
     except Exception as e:  # pragma: no cover - defensive; never break generation
@@ -84,28 +82,14 @@ def summarize_prior_preprocessing(raw_df, processed_df, label_col=None, notes=No
 
 class UNSW_NB15_PriorPreprocessor:
 
-    _NORMAL_CLASS = "Normal"
-    _NORMAL_TARGET_RATIO = 0.495
-
     # Optional semantic notes for the LLM (things the auto-diff cannot infer). Keyed by
     # classification type; consumed via summarize_prior_preprocessing(..., notes=...).
     PRIOR_NOTES = {
-        "binary": [
-            "Dropped 'id' and 'attack_cat' (record identifier and the multiclass target).",
-            "In categorical 'service', the placeholder '-' was replaced with 'other'.",
-        ],
         "multiclass": [
             "Dropped 'id' and 'label' (record identifier and the binary target).",
             "In categorical 'service', the placeholder '-' was replaced with 'other'.",
         ],
     }
-
-    @staticmethod
-    def binary_prior_preprocessing(dataset_df: pd.DataFrame) -> pd.DataFrame:
-        """Initial preprocessing: drop certain columns and handle missing"""
-        dataset = dataset_df.drop(['id', 'attack_cat'], axis=1)
-        dataset['service'] = dataset['service'].replace('-', 'other')
-        return dataset
 
     @staticmethod
     def multi_class_prior_preprocessing(dataset_df: pd.DataFrame) -> pd.DataFrame:
@@ -114,81 +98,34 @@ class UNSW_NB15_PriorPreprocessor:
         dataset['service'] = dataset['service'].replace('-', 'other')
         return dataset
 
-    @staticmethod
-    def paper_imbalance_handling(train_df: pd.DataFrame, target_col: str = 'attack_cat', random_state: int = 42) -> pd.DataFrame:
-        """Oversample Normal to ~49.5% of train while retaining every class."""
-        normal_class = UNSW_NB15_PriorPreprocessor._NORMAL_CLASS
-        ratio = UNSW_NB15_PriorPreprocessor._NORMAL_TARGET_RATIO
 
-        normal_mask = train_df[target_col] == normal_class
-        normal_df = train_df[normal_mask]
-        other_df = train_df[~normal_mask]
-
-        target_normal = int(round(ratio / (1.0 - ratio) * len(other_df)))
-        if target_normal > len(normal_df):
-            normal_df = normal_df.sample(n=target_normal, replace=True, random_state=random_state)
-
-        return pd.concat([other_df, normal_df], ignore_index=True).sample(frac=1.0, random_state=random_state).reset_index(drop=True)
-    
-    
 class CIC_IDS_2017_PriorPreprocessor:
 
     PRIOR_NOTES = {
-        "binary": [
-            "Stripped whitespace from column names.",
-            "Replaced ±infinity with NaN, then filled all NaNs with 0.",
-            "Clipped numeric values to the range [-1e12, 1e12].",
-            "Dropped constant (single-value) columns.",
-            "Renamed 'Label'→'label' and binarized it (BENIGN→0, any attack→1).",
-        ],
         "multiclass": [
-            "Stripped whitespace from column names.",
-            "Replaced ±infinity with NaN and dropped rows containing NaN.",
-            "Dropped 10 all-zero/bulk-flag columns (e.g. 'Bwd PSH Flags', 'Fwd URG Flags', "
-            "'CWE Flag Count', and the Avg-Bytes/Packets/Bulk-Rate columns).",
+            'Stripped whitespace from column names.',
+            'Replaced ±infinity with NaN and dropped rows containing NaN.',
+            "Dropped 10 all-zero/bulk-flag columns (e.g. 'Bwd PSH Flags', 'Fwd URG Flags', 'CWE Flag Count', and the Avg-Bytes/Packets/Bulk-Rate columns).",
         ],
     }
 
     @staticmethod
-    def binary_prior_preprocessing(dataset_df: pd.DataFrame) -> pd.DataFrame:
-        """Initial preprocessing: drop certain columns and handle missing"""
-        dataset = dataset_df.copy()
-        
-        dataset.columns = dataset.columns.str.strip()
-        
-        dataset.replace([np.inf, -np.inf], np.nan, inplace=True)
-        
-        dataset = dataset.fillna(0)
-        
-        numeric_cols = dataset.select_dtypes(include=[np.number]).columns
-        dataset[numeric_cols] = dataset[numeric_cols].clip(lower=-1e12, upper=1e12)
-        
-        drop_cols = [col for col in dataset.columns if dataset[col].nunique() == 1]
-        dataset = dataset.drop(columns=drop_cols)
-        
-        dataset = dataset.rename(columns={'Label': 'label'})
-        
-        dataset['label'] = dataset['label'].apply(lambda x: 0 if x == "BENIGN" else 1)
-        
-        return dataset
-        
-    @staticmethod
     def multi_class_prior_preprocessing(dataset_df: pd.DataFrame) -> pd.DataFrame:
         """Initial preprocessing: drop certain columns and handle missing"""
-        dataset = dataset_df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        dataset = dataset_df.replace([np.inf, -np.inf], np.nan).copy()
         dataset.dropna(inplace=True)
         dataset.reset_index(drop=True, inplace=True)
         dataset.columns = dataset.columns.str.strip()
         dataset = dataset.drop(columns=[
-            "Bwd PSH Flags", 
-            "Fwd URG Flags", 
-            "Bwd URG Flags", 
-            "CWE Flag Count", 
-            "Fwd Avg Bytes/Bulk", 
-            "Bwd Avg Bytes/Bulk", 
-            "Fwd Avg Packets/Bulk", 
-            "Fwd Avg Bulk Rate", 
-            "Bwd Avg Packets/Bulk", 
+            "Bwd PSH Flags",
+            "Fwd URG Flags",
+            "Bwd URG Flags",
+            "CWE Flag Count",
+            "Fwd Avg Bytes/Bulk",
+            "Bwd Avg Bytes/Bulk",
+            "Fwd Avg Packets/Bulk",
+            "Fwd Avg Bulk Rate",
+            "Bwd Avg Packets/Bulk",
             "Bwd Avg Bulk Rate"
         ])
         return dataset
@@ -196,41 +133,13 @@ class CIC_IDS_2017_PriorPreprocessor:
 class NSL_KDD_PriorPreprocessor:
 
     PRIOR_NOTES = {
-        "binary": [
-            "Stripped whitespace from column names.",
-            "Dropped 'difficulty' and the constant 'num_outbound_cmds' feature.",
-            "Created a binary 'label' (normal→0, any attack→1) from the original class column.",
-        ],
         "multiclass": [
-            "Stripped whitespace from column names.",
+            'Stripped whitespace from column names.',
             "Dropped 'difficulty' and the constant 'num_outbound_cmds' feature.",
             "Mapped raw attack names into the five-class 'attack_cat' target.",
         ],
     }
 
-    @staticmethod
-    def binary_prior_preprocessing(
-        dataset_df: pd.DataFrame,
-        drop_num_outbound_cmds: bool = True,
-    ) -> pd.DataFrame:
-        """Initial preprocessing: handle missing and format labels for NSL-KDD"""
-        dataset = dataset_df.copy()
-        dataset.columns = dataset.columns.str.strip()
-        
-        if 'difficulty' in dataset.columns:
-            dataset = dataset.drop('difficulty', axis=1)
-            
-        if drop_num_outbound_cmds and 'num_outbound_cmds' in dataset.columns:
-            dataset = dataset.drop('num_outbound_cmds', axis=1)            
-            
-        label_col = 'label' if 'label' in dataset.columns else 'class'
-        if label_col in dataset.columns:
-            dataset['label'] = dataset[label_col].apply(lambda x: 0 if x == 'normal' else 1)
-            if label_col != 'label':
-                dataset = dataset.drop(label_col, axis=1)
-                
-        return dataset
-        
     @staticmethod
     def multi_class_prior_preprocessing(
         dataset_df: pd.DataFrame,
@@ -239,70 +148,37 @@ class NSL_KDD_PriorPreprocessor:
         """Initial preprocessing: handle missing and format labels for NSL-KDD into 5 standard classes"""
         dataset = dataset_df.copy()
         dataset.columns = dataset.columns.str.strip()
-        
+
         if 'difficulty' in dataset.columns:
             dataset = dataset.drop('difficulty', axis=1)
-            
+
         if drop_num_outbound_cmds and 'num_outbound_cmds' in dataset.columns:
-            dataset = dataset.drop('num_outbound_cmds', axis=1)  
-            
+            dataset = dataset.drop('num_outbound_cmds', axis=1)
+
         # Standard NSL-KDD 5-class mapping
         attack_map = {
             # DoS
-            'back': 'DoS', 'land': 'DoS', 'neptune': 'DoS', 'pod': 'DoS', 'smurf': 'DoS', 
+            'back': 'DoS', 'land': 'DoS', 'neptune': 'DoS', 'pod': 'DoS', 'smurf': 'DoS',
             'teardrop': 'DoS', 'apache2': 'DoS', 'mailbomb': 'DoS', 'processtable': 'DoS', 'udpstorm': 'DoS',
             # Probe
             'ipsweep': 'Probe', 'nmap': 'Probe', 'portsweep': 'Probe', 'satan': 'Probe', 'mscan': 'Probe', 'saint': 'Probe',
             # R2L
-            'ftp_write': 'R2L', 'guess_passwd': 'R2L', 'httptunnel': 'R2L', 'imap': 'R2L', 
-            'multihop': 'R2L', 'named': 'R2L', 'phf': 'R2L', 'sendmail': 'R2L', 
-            'snmpgetattack': 'R2L', 'snmpguess': 'R2L', 'spy': 'R2L', 'warezclient': 'R2L', 
+            'ftp_write': 'R2L', 'guess_passwd': 'R2L', 'httptunnel': 'R2L', 'imap': 'R2L',
+            'multihop': 'R2L', 'named': 'R2L', 'phf': 'R2L', 'sendmail': 'R2L',
+            'snmpgetattack': 'R2L', 'snmpguess': 'R2L', 'spy': 'R2L', 'warezclient': 'R2L',
             'warezmaster': 'R2L', 'worm': 'R2L', 'xlock': 'R2L', 'xsnoop': 'R2L',
             # U2R
-            'buffer_overflow': 'U2R', 'loadmodule': 'U2R', 'perl': 'U2R', 'ps': 'U2R', 
+            'buffer_overflow': 'U2R', 'loadmodule': 'U2R', 'perl': 'U2R', 'ps': 'U2R',
             'rootkit': 'U2R', 'sqlattack': 'U2R', 'xterm': 'U2R',
             # Normal
             'normal': 'normal'
         }
-        
+
         label_col = 'label' if 'label' in dataset.columns else 'class'
         if label_col in dataset.columns:
             # Map raw labels to the 5 categories
             dataset['attack_cat'] = dataset[label_col].map(attack_map).fillna(dataset[label_col])
             if label_col != 'attack_cat':
                 dataset = dataset.drop(label_col, axis=1)
-                
-        return dataset
 
-class BotNetIoT_L01_PriorPreprocessor:
-
-    PRIOR_NOTES = {
-        "binary": [
-            "Stripped whitespace from column names.",
-            "Dropped the 'Unnamed: 0' index column if present.",
-        ],
-        "multiclass": [
-            "Stripped whitespace from column names.",
-            "Dropped the 'Unnamed: 0' index column if present.",
-        ],
-    }
-
-    @staticmethod
-    def binary_prior_preprocessing(dataset_df: pd.DataFrame) -> pd.DataFrame:
-        """Initial preprocessing for BotNetIoT_L01"""
-        dataset = dataset_df.copy()
-        dataset.columns = dataset.columns.str.strip()
-        # Drop unnamed index if exists
-        if 'Unnamed: 0' in dataset.columns:
-            dataset = dataset.drop('Unnamed: 0', axis=1)
-        return dataset
-        
-    @staticmethod
-    def multi_class_prior_preprocessing(dataset_df: pd.DataFrame) -> pd.DataFrame:
-        """Initial preprocessing for BotNetIoT_L01"""
-        dataset = dataset_df.copy()
-        dataset.columns = dataset.columns.str.strip()
-        # Drop unnamed index if exists
-        if 'Unnamed: 0' in dataset.columns:
-            dataset = dataset.drop('Unnamed: 0', axis=1)
         return dataset

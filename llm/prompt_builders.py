@@ -674,6 +674,8 @@ def build_stage3_user_prompt(
     feature_catalog_str: str,
 ) -> str:
     """Build the behavior-oriented executable contract for Stage 3."""
+    if classification_type != "multiclass":
+        raise ValueError("Stage 3 supports only multiclass classification.")
     stage3_data = {
         "train_rows": n_rows,
         "classification_type": classification_type,

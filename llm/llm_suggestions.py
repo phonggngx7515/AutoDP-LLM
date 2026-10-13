@@ -1522,8 +1522,10 @@ class LLM_Suggestions:
             f"Last validation error: {err}"
         )
 
-    def generate(self, train_df, label_col_name, dataset_name, classification_type: str = "binary",
+    def generate(self, train_df, label_col_name, dataset_name, classification_type: str = "multiclass",
                  test_df=None, prior_summary: str = "", feature_catalog=None, generation_seed: int = 42):
+        if classification_type != "multiclass":
+            raise ValueError("Only multiclass LLM generation is supported.")
         import random
         random.seed(generation_seed)
         np.random.seed(generation_seed)

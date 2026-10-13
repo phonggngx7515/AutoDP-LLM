@@ -365,7 +365,7 @@ def _evaluate_validation_artifact(
     X_none, y_none, X_val_none, y_val_none = preprocess_candidate("none")
     reduction_started = time.perf_counter()
     X_none_reduced_raw, X_val_none_reduced_raw = _reduce_features(
-        preprocessor, X_none, X_val_none, y_none, config, None
+        preprocessor, X_none, X_val_none, y_none
     )
     locked_reduction_seconds = float(time.perf_counter() - reduction_started)
     reduction_seconds["none"] = locked_reduction_seconds
@@ -1015,7 +1015,6 @@ def run_validation_suite(config: ExperimentConfig):
     )
     if (
         config.dataset_name == "NSL_KDD"
-        and config.classification_type == "multiclass"
         and inner_train[config.target_column].nunique() != 5
     ):
         raise RuntimeError("NSL-KDD rare-safe split did not preserve all five classes.")
