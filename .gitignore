@@ -1,0 +1,16 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+datasets/
+generated/
+text_files/
+results/
+rejected_artifacts/
+catboost_info/
+
+.env
+.venv
+.claude
+.vscode
