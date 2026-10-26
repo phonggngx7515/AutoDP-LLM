@@ -167,3 +167,21 @@ For NSL-KDD, use `TRAIN_PATH=./datasets/KDDTrain+.csv` and
   locked features, weighted metrics, timing, API usage, and artifact failures.
 - `text_files/validation_splits/*.json`: fixed split positions and dataset integrity metadata.
 - `rejected_artifacts/`: diagnostics from generated responses that failed validation.
+
+## Citation
+
+```bibtex
+@article{Nguyen_2026,
+   title={AutoDP-LLM: automating data pre-processing for intrusion detection systems using large language models},
+   volume={82},
+   ISSN={1573-0484},
+   url={http://dx.doi.org/10.1007/s11227-026-08894-8},
+   DOI={10.1007/s11227-026-08894-8},
+   number={15},
+   journal={The Journal of Supercomputing},
+   publisher={Springer Science and Business Media LLC},
+   author={Nguyen, Bao-Phong and Pham, Gia-Khanh and Do, Thai-Duong and Trang, Mai Xuan and Le, Minh-Tuan and Tran, Xuan-Nam and Vu, Huan and Nguyen, Tien-Cuong and Ngo, Vu-Duc and Van Luong, Thien},
+   year={2026},
+   month=Oct }
+
+```
